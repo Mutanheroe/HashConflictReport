@@ -8,11 +8,6 @@ import magic
 
 result = {}
 
-class hashResult:
-  def __init__(self, hash, lineNumber, line):
-    self.hash = hash
-    self.lineNumber = lineNumber
-    self.line = line
 
 def main():
     hashMap ={}
@@ -162,7 +157,7 @@ def generateReport():
 
 
 def generateHTMLListElement(element,hash):
-    if len(element['iniNames']) > 50:
+    if len(element['iniNames']) > 100:
         element['iniNames'] = element['iniNames'][:100]+"..."
     html_template = """  <li class="list-group-item"><div id="accordion"""+hash+"""">
             <div class="card">
