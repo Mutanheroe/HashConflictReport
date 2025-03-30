@@ -1,4 +1,4 @@
-# Written by Mu based on petrascyll
+# Written by Mutanheroe
 
 import os
 import argparse
