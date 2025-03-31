@@ -2,12 +2,12 @@
 
 import os
 import argparse
+from typing import List
 import webbrowser
 import magic
 
-
 result = {}
-
+folderHasMap = {}
 
 def main():
     hashMap ={}
@@ -30,9 +30,8 @@ def main():
     else:
         hashMap = process_folder('.',hashMap)
 
-
     drawbuda()
-  
+    mergeFileHash()
     generateReport()
 
 def process_folder(folder_path,hashMap):
@@ -72,10 +71,12 @@ def check_ini(filepath,hashMap):
             if i+2<len(linecontent) and linecontent[i].rstrip('\n')=='hash' and linecontent[i+1].rstrip('\n')=='=' :
                 hash = linecontent[i+2].rstrip('\n')
                 hashMap = checkHash(hashMap,hash,filepath, counter,line)
+
         counter+=1
     content.close()
 
     return hashMap
+
 
 def checkHash(hashMap,hash,filepath,lineNumber,line):
     absolutepath=os.path.abspath(filepath)
@@ -98,10 +99,35 @@ def checkHash(hashMap,hash,filepath,lineNumber,line):
                 hashMap[hash]['line'].append(line)
                 hashMap[hash]['filepath'].append(filepath)
                 hashMap[hash]['absolutepaht'].append(absolutepath)
-                hashMap[hash]['iniNames']+= ", "+iniName    
+                hashMap[hash]['iniNames']+= ", "+iniName  
+                
                 result[hash] = hashMap[hash]
+                result[hash]['hash'] = hash
+
+                key =filepath.split("\\")[1]
+                if(folderHasMap.get(key)==None):
+                    folderHasMap[key] =[result[hash]]
+                else:
+                    folderHasMap[key].append(result[hash])
+            
+
+
+
     return hashMap    
 
+def mergeFileHash():
+    for key in folderHasMap.keys():
+        merged=[]  
+        for e in folderHasMap[key]:
+            found = False
+            for i in merged:
+                if i['hash'] == e['hash']:
+                    found = True
+                    break
+            if not found:
+                merged.append(e) 
+        folderHasMap[key] = merged
+                   
 def setGrade(filepath,posibleMatchs):
     res =  []
     splitedFilePath1 =  filepath.split("\\")
@@ -182,14 +208,19 @@ def generateReport():
     #    print ("Hash: "+ key+ " found in")
     #    for ocurrence in range(len(result[key]['line'])):
     #        print ( result[key]['filepath'][ocurrence]+ " at line: " + str(result[key]['lineNumber'][ocurrence]) + "  "+ result[key]['line'][ocurrence])
+    
+
 
     with open("HashConflictReport.html", 'w', encoding="utf-8") as report:
             if(len(result.keys())>0):
-                report.write(getHeader())
-                orderedItems = orderItems(result)
-                for key in orderedItems:
-                    report.write(generateHTMLListElement(result[key['hash']],key['hash']))    
+                report.write(getHeader(len(result.keys())))
 
+               
+                
+                report.write(fileSearchPanel())
+                orderedItems = orderItems(result)
+                report.write(exaustiveSearchPanel(orderedItems))
+            
                 report.write(getBottom())        
             else:
                 report.write(emptyResults())
@@ -198,6 +229,20 @@ def generateReport():
 
 
     webbrowser.open('file://' + os.path.realpath("HashConflictReport.html"))      
+
+def fileSearchPanel():
+    html_template = """<div class="card-body"> <ul class="list-group">""" 
+    for key in folderHasMap:
+        html_template += generateHTMLListElementFiles(folderHasMap[key],key) 
+    html_template += """</ul></div>"""
+    return html_template
+
+def exaustiveSearchPanel (orderedItems):
+    html_template = """<div class="card-body"> <ul class="list-group">""" 
+    for key in orderedItems:
+        html_template += generateHTMLListElement(result[key['hash']],key['hash'],str(0)) 
+    html_template += """</ul></div>"""
+    return html_template
 
 def orderItems(items):
     res =[]
@@ -217,18 +262,39 @@ def getIconCheck(check):
     
     return html_template
 
-def generateHTMLListElement(element,hash):
+def getListGroup(grade):
+    if grade < 25:
+        return  """color: AliceBlue;"""
+    if grade < 50:
+        return  """color: GreenYellow;</i>"""
+    else:
+        return  """color: IndianRed;</i>"""
+
+def generateHTMLListElementFiles(element,hash):
+    html_template =  """<li  class="list-group-item d-flex justify-content-between align-items-center" ><div id="accordion"""+hash+"""">
+            Mod: <button class="btn btn-link" data-toggle="collapse" data-target="#"""+hash+"""" aria-expanded="false" aria-controls="collapseOne"> """+ hash+"""</button> 
+            <div id="""+hash+""" aria-labelledby="headingOne" class="accordion-body collapse" data-parent="#accordion"""+hash+"""" >
+                <div class="card-body">
+                    <ul class="list-group">"""
+    html_template +=""""<div class="card-body"> <ul class="list-group">"""
+    
+    count = 1
+    for ocurrence in element:
+        html_template += generateHTMLListElement(ocurrence,ocurrence['hash'],str(count)) 
+        count+=1
+    html_template += """</ul></div>"""                   
+    html_template +="</ul></div></div></div></li>"                   
+    return  html_template
+
+def generateHTMLListElement(element,hash,stamp):
     if len(element['iniNames']) > 100:
         element['iniNames'] = element['iniNames'][:100]+"..."
-    html_template = """  <li class="list-group-item"><div id="accordion"""+hash+"""">
-            <div class="card">
-                <div class="card-header" id="headingOne">
-                    <h5 class="mb-0">
-                       Hash: <button class="btn btn-link" data-toggle="collapse" data-target="#"""+hash+"""" aria-expanded="false" aria-controls="collapseOne"> """+ hash+"""</button>"""+ str(len(element['lineNumber']))+""" ocurrences : """+element['iniNames']+"""
-                       
-                    </h5>
-                </div>
-                <div id="""+hash+""" aria-labelledby="headingOne" class="accordion-body collapse" data-parent="#accordion"""+hash+"""" >
+    html_template = """  <li  class="list-group-item d-flex justify-content-between align-items-center" ><div id="accordion"""+hash+stamp+"""">
+            
+                    
+                       Hash:<button class="btn btn-link" data-toggle="collapse" data-target="#"""+hash+stamp+"""" aria-expanded="false" aria-controls="collapseOne"> """+ hash+"""</button> """+element['iniNames']+""" : """+str(len(element['lineNumber']))+""" elements
+                    
+                <div id="""+hash+stamp+""" aria-labelledby="headingOne" class="accordion-body collapse" data-parent="#accordion"""+hash+stamp+"""" >
                 <div class="card-body">
                     <ul class="list-group">"""
     
@@ -237,18 +303,15 @@ def generateHTMLListElement(element,hash):
     for ocurrence in range(len(element['line'])):
         html_template += """ <li class="list-group-item fs-6"> Found at line number """+ str(element['lineNumber'][ocurrence]+1)+""": <a href="file:///"""+ element['absolutepaht'][ocurrence]+"""">"""+ element['filepath'][ocurrence]+"""</a></li>"""
 
-    
-    html_template +="</ul></div></div></div></div></li>"
-
-
-
-    html_template +="""</button>"""
+    html_template +="</ul></div></div></div></li>"
+    #html_template +="""</button>"""
     return html_template
 
 def emptyResults():
     html_template = """<!DOCTYPE html> 
     <html lang="en">
     <head> 
+    
     <title>Hash Conflict Report</title> 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -269,7 +332,7 @@ def emptyResults():
     return html_template
 
 
-def getHeader():
+def getHeader(matches):
     html_template = """<!DOCTYPE html> 
     <html lang="en">
     <head> 
@@ -279,14 +342,17 @@ def getHeader():
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+  
+    
     </head> 
     <body> 
     <div class="container">
     <h2>Hash Conflict Report</h2>
-    
-
+    <p>The process has found """+str(matches)+""" matches.</p>
     <p>This hashes appear on different files, this is not forced a conflict if they are intentionally set by moders or users</p>
-    <ul class="list-group">
+   
+
+
     
      
   
@@ -295,7 +361,8 @@ def getHeader():
 
 def getBottom():
     html_template = """ 
-    </ul>
+    
+    </div>
     </div>
     </body> 
     </html> 
@@ -303,6 +370,5 @@ def getBottom():
     return html_template
 
 main()
-
-pause()
 #python -m PyInstaller  --onefile  ModConflictFinder.py   
+

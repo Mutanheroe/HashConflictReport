@@ -2,6 +2,9 @@
 /build
 /dist
 /Mods
-*.html
+/UI
 *.spec
 *.rar
+*.html
+*
+!*.py
