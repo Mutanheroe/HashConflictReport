@@ -68,8 +68,7 @@ def check_ini(filepath,hashMap):
     for line in content:
         linecontent  = line.split()
         
-        for i in range(len(linecontent)):
-            
+        for i in range(len(linecontent)):            
             if i+2<len(linecontent) and linecontent[i].rstrip('\n')=='hash' and linecontent[i+1].rstrip('\n')=='=' :
                 hash = linecontent[i+2].rstrip('\n')
                 hashMap = checkHash(hashMap,hash,filepath, counter,line)
@@ -80,28 +79,73 @@ def check_ini(filepath,hashMap):
 
 def checkHash(hashMap,hash,filepath,lineNumber,line):
     absolutepath=os.path.abspath(filepath)
+    iniName = filepath.split("\\")[1]
     if(hashMap.get(hash)==None):
-        hashMap[hash] = {'hash':hash, 'lineNumber':[lineNumber], 'line':[line], 'filepath':[filepath], 'absolutepaht': [absolutepath], 'iniNames' : filepath.split("\\")[-1]}
+        hashMap[hash] = {'hash':hash, 'lineNumber':[lineNumber], 'line':[line], 'filepath':[filepath], 'absolutepaht': [absolutepath], 'iniNames' :iniName}
     
     elif(hashMap[hash]!=None):
         sameFile = False
         for path in hashMap[hash]['filepath']:
             if(path ==filepath):
-                sameFile= True
-                break;
+                sameFile= True                
+                break
+            
         
-        if (not sameFile):
-            hashMap[hash]['lineNumber'].append(lineNumber)
-            hashMap[hash]['line'].append(line)
-            hashMap[hash]['filepath'].append(filepath)
-            hashMap[hash]['absolutepaht'].append(absolutepath)
-            hashMap[hash]['iniNames']+= " "+filepath.split("\\")[-1]
-            result[hash] = hashMap[hash]
-
-
+        if (not sameFile ):
+            if setCheck(filepath,  hashMap[hash]['filepath']):
+                hashMap[hash]['grade']=setGrade(filepath,  hashMap[hash]['filepath'])
+                hashMap[hash]['lineNumber'].append(lineNumber)
+                hashMap[hash]['line'].append(line)
+                hashMap[hash]['filepath'].append(filepath)
+                hashMap[hash]['absolutepaht'].append(absolutepath)
+                hashMap[hash]['iniNames']+= ", "+iniName    
+                result[hash] = hashMap[hash]
     return hashMap    
-    
-  
+
+def setGrade(filepath,posibleMatchs):
+    res =  []
+    splitedFilePath1 =  filepath.split("\\")
+    splitedFilePath1 .pop()
+    maxLength = 1;   
+    for path in posibleMatchs:
+        dif = 0 
+        splitedFilePath2 =  path.split("\\")
+        splitedFilePath2.pop()
+        if(len(splitedFilePath2)>len(splitedFilePath1)):
+            q = splitedFilePath1
+            splitedFilePath1 =splitedFilePath2
+            splitedFilePath2 = q
+        if  len(splitedFilePath2) >maxLength:
+            maxLength = len(splitedFilePath2)
+        
+        for q in  splitedFilePath1:
+            if q not in splitedFilePath2:
+                dif+=1
+        res.append(dif)
+
+        res.sort()
+
+    return (100*res[-1])/maxLength
+
+def setCheck(filepath,posibleMatchs):
+    path1 = getPathWithoutFileName(filepath)
+    for path in posibleMatchs:
+        path2 = getPathWithoutFileName(path)
+        if(path1 in path2):
+            continue
+        elif(path2 in path1):    
+            continue
+        else:
+            return True    
+    return False
+
+def getPathWithoutFileName(path):
+    res = ""
+    splitedPath = path.split("\\")
+    splitedPath.pop()
+    for  e in splitedPath:
+        res+=e
+    return res
                 
 def pause():
    input('Press Enter to close')
@@ -142,8 +186,9 @@ def generateReport():
     with open("HashConflictReport.html", 'w', encoding="utf-8") as report:
             if(len(result.keys())>0):
                 report.write(getHeader())
-                for key in result.keys():
-                    report.write(generateHTMLListElement(result[key],key))    
+                orderedItems = orderItems(result)
+                for key in orderedItems:
+                    report.write(generateHTMLListElement(result[key['hash']],key['hash']))    
 
                 report.write(getBottom())        
             else:
@@ -154,7 +199,23 @@ def generateReport():
 
     webbrowser.open('file://' + os.path.realpath("HashConflictReport.html"))      
 
+def orderItems(items):
+    res =[]
+    for key in result.keys():
+        result[key]['hash'] = key
+        res.append(result[key])
+    res.sort(reverse=True,key=order)
+    return res
 
+def order(res):
+    return res['grade']
+
+def getIconCheck(check):
+    html_template =""
+    if(check):
+        html_template ="""<i class="material-icons">warning</i>"""
+    
+    return html_template
 
 def generateHTMLListElement(element,hash):
     if len(element['iniNames']) > 100:
@@ -164,6 +225,7 @@ def generateHTMLListElement(element,hash):
                 <div class="card-header" id="headingOne">
                     <h5 class="mb-0">
                        Hash: <button class="btn btn-link" data-toggle="collapse" data-target="#"""+hash+"""" aria-expanded="false" aria-controls="collapseOne"> """+ hash+"""</button>"""+ str(len(element['lineNumber']))+""" ocurrences : """+element['iniNames']+"""
+                       
                     </h5>
                 </div>
                 <div id="""+hash+""" aria-labelledby="headingOne" class="accordion-body collapse" data-parent="#accordion"""+hash+"""" >
@@ -240,3 +302,7 @@ def getBottom():
     """
     return html_template
 
+main()
+
+pause()
+#python -m PyInstaller  --onefile  ModConflictFinder.py   
