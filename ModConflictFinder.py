@@ -31,7 +31,7 @@ def main():
         hashMap = process_folder('.',hashMap)
 
     drawbuda()
-    mergeFileHash()
+    mergeFileHash2()
     generateReport()
 
 def process_folder(folder_path,hashMap):
@@ -99,16 +99,24 @@ def checkHash(hashMap,hash,filepath,lineNumber,line):
                 hashMap[hash]['line'].append(line)
                 hashMap[hash]['filepath'].append(filepath)
                 hashMap[hash]['absolutepaht'].append(absolutepath)
-                hashMap[hash]['iniNames']+= ", "+iniName  
-                
+                hashMap[hash]['iniNames']+= ", "+iniName 
+                if('sameMod' in hashMap[hash].keys()):
+                     hashMap[hash]['sameMod'] = (hashMap[hash]['sameMod'] and isSameModFolder(hashMap[hash]['filepath'])) 
+                else:
+                    hashMap[hash]['sameMod'] = isSameModFolder(hashMap[hash]['filepath'])
+                   
                 result[hash] = hashMap[hash]
                 result[hash]['hash'] = hash
 
+
                 key =filepath.split("\\")[1]
-                if(folderHasMap.get(key)==None):
-                    folderHasMap[key] =[result[hash]]
-                else:
-                    folderHasMap[key].append(result[hash])
+                if( result[hash]['sameMod'] ==False):
+                    if(folderHasMap.get(key)==None  ):
+                         folderHasMap[key] =[result[hash]]
+                    else:
+                        folderHasMap[key].append(result[hash])
+                
+               
             
 
 
@@ -116,18 +124,51 @@ def checkHash(hashMap,hash,filepath,lineNumber,line):
     return hashMap    
 
 def mergeFileHash():
+
+
+
+    
+    sameFileKeys = []
     for key in folderHasMap.keys():
+        if(key=='All LadyGirl NPC mod for ZenlessZoneZero'):
+            print(folderHasMap[key])
         merged=[]  
         for e in folderHasMap[key]:
-            found = False
+            found = e['sameMod'] 
             for i in merged:
                 if i['hash'] == e['hash']:
                     found = True
                     break
+                    
             if not found:
                 merged.append(e) 
-        folderHasMap[key] = merged
-                   
+        paths =[]
+        for element in merged:
+            paths.append(element['filepath'])
+        
+        if(isSameModFolderMatrix(paths)):
+            sameFileKeys.append(key)
+            #folderHasMap.pop(key)
+        else:    
+            folderHasMap[key] = merged
+
+    for e in sameFileKeys:
+        folderHasMap.pop(e)
+    
+
+def mergeFileHash2():
+    popPila = []
+    for key in folderHasMap.keys():
+        for element in folderHasMap[key]:
+            if(element['sameMod'] ):
+                folderHasMap[key].remove(element)
+        if len(folderHasMap[key])==0:
+            popPila.append(key)
+
+    for e in popPila:
+        folderHasMap.pop(e) 
+
+
 def setGrade(filepath,posibleMatchs):
     res =  []
     splitedFilePath1 =  filepath.split("\\")
@@ -172,7 +213,23 @@ def getPathWithoutFileName(path):
     for  e in splitedPath:
         res+=e
     return res
-                
+             
+def isSameModFolder(filepaths):
+    fileNames = {}
+    for path in filepaths:
+        fileNames[path.split("\\")[1]] = None
+
+    return 1 == len(fileNames.keys())
+
+
+
+def isSameModFolderMatrix(paths):
+    fileNames = {}
+    for path in paths:
+        for e in path:
+            fileNames[e.split("\\")[1]] = None
+    return 1 == len (fileNames.keys())
+
 def pause():
    input('Press Enter to close')
 
@@ -231,14 +288,18 @@ def generateReport():
     webbrowser.open('file://' + os.path.realpath("HashConflictReport.html"))      
 
 def fileSearchPanel():
-    html_template = """<div class="card-body"> <ul class="list-group">""" 
+    html_template = """<div class="card-body"> <ul class="list-group">"""
+    count =1
     for key in folderHasMap:
-        html_template += generateHTMLListElementFiles(folderHasMap[key],key) 
+       # if(len(folderHasMap[key])>1):
+       id = str(count)+"id"
+       html_template += generateHTMLListElementFiles(folderHasMap[key],key,id) 
+       count+=1
     html_template += """</ul></div>"""
     return html_template
 
 def exaustiveSearchPanel (orderedItems):
-    html_template = """<div class="card-body"> <ul class="list-group">""" 
+    html_template = """<br><h3>Hash List</h3><div class="card-body"> <ul class="list-group">""" 
     for key in orderedItems:
         html_template += generateHTMLListElement(result[key['hash']],key['hash'],str(0)) 
     html_template += """</ul></div>"""
@@ -270,25 +331,28 @@ def getListGroup(grade):
     else:
         return  """color: IndianRed;</i>"""
 
-def generateHTMLListElementFiles(element,hash):
-    html_template =  """<li  class="list-group-item d-flex justify-content-between align-items-center" ><div id="accordion"""+hash+"""">
-            Mod: <button class="btn btn-link" data-toggle="collapse" data-target="#"""+hash+"""" aria-expanded="false" aria-controls="collapseOne"> """+ hash+"""</button> 
-            <div id="""+hash+""" aria-labelledby="headingOne" class="accordion-body collapse" data-parent="#accordion"""+hash+"""" >
-                <div class="card-body">
-                    <ul class="list-group">"""
-    html_template +=""""<div class="card-body"> <ul class="list-group">"""
+def generateHTMLListElementFiles(element,hash,id):
+    html_template =  """<li  class="list-group-item d-flex justify-content-between align-items-center" >
+    <div id="accordion"""+id+"""">
+    Mod: <button class="btn btn-link" data-toggle="collapse" data-target="#"""+id+"""" aria-expanded="false" aria-controls="collapseOne"> """+ hash+"""</button> 
+    <div id="""+id+""" aria-labelledby="headingOne" class="accordion-body collapse" data-parent="#accordion"""+id+"""" >
+    <div class="card-body">
+    <ul class="list-group">"""
+    html_template +="""<div class="card-body"> <ul class="list-group">"""
     
     count = 1
     for ocurrence in element:
-        html_template += generateHTMLListElement(ocurrence,ocurrence['hash'],str(count)) 
+       # if count ==1:
+        #    print(ocurrence)
+        html_template += generateHTMLListElement(ocurrence,ocurrence['hash'],str(id)+str(count)) 
         count+=1
     html_template += """</ul></div>"""                   
     html_template +="</ul></div></div></div></li>"                   
     return  html_template
 
 def generateHTMLListElement(element,hash,stamp):
-    if len(element['iniNames']) > 100:
-        element['iniNames'] = element['iniNames'][:100]+"..."
+    if len(element['iniNames']) > 50:
+        element['iniNames'] = element['iniNames'][:50]+"..."
     html_template = """  <li  class="list-group-item d-flex justify-content-between align-items-center" ><div id="accordion"""+hash+stamp+"""">
             
                     
@@ -303,7 +367,7 @@ def generateHTMLListElement(element,hash,stamp):
     for ocurrence in range(len(element['line'])):
         html_template += """ <li class="list-group-item fs-6"> Found at line number """+ str(element['lineNumber'][ocurrence]+1)+""": <a href="file:///"""+ element['absolutepaht'][ocurrence]+"""">"""+ element['filepath'][ocurrence]+"""</a></li>"""
 
-    html_template +="</ul></div></div></div></li>"
+    html_template +="</ul></div></div></li>"
     #html_template +="""</button>"""
     return html_template
 
@@ -348,9 +412,9 @@ def getHeader(matches):
     <body> 
     <div class="container">
     <h2>Hash Conflict Report</h2>
-    <p>The process has found """+str(matches)+""" matches.</p>
+    <p>The process has found """+str(matches)+""" hash.</p>
     <p>This hashes appear on different files, this is not forced a conflict if they are intentionally set by moders or users</p>
-   
+    <h3>Mod List</h3>
 
 
     
@@ -370,5 +434,6 @@ def getBottom():
     return html_template
 
 main()
+pause()
 #python -m PyInstaller  --onefile  ModConflictFinder.py   
 
