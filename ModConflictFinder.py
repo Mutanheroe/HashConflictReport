@@ -2,14 +2,14 @@
 
 import os
 import argparse
-from typing import List
-import webbrowser
 import magic
+import ReportGenerator as rg
+from GlobalVariables import  *  
 
-result = {}
-folderHasMap = {}
 
-def main():
+
+#Main
+def main(rg):
     hashMap ={}
     parser = argparse.ArgumentParser(
         prog="Mod Hash Conflict Finder",
@@ -32,8 +32,9 @@ def main():
 
     drawbuda()
     mergeFileHash2()
-    generateReport()
+    rg.generateReport()
 
+#Recursive search
 def process_folder(folder_path,hashMap):
     for filename in os.listdir(folder_path):
         if (not filename.upper().startswith('DISABLED') and not filename.upper().startswith('DESKTOP')):
@@ -45,6 +46,7 @@ def process_folder(folder_path,hashMap):
                 check_ini(filepath,hashMap)
     return hashMap
 
+#Open File
 def check_ini(filepath,hashMap):
     content = ''
     enco = ''
@@ -64,20 +66,76 @@ def check_ini(filepath,hashMap):
 
     
     counter = 0
+    modName=  filepath.split("\\")[1]
     for line in content:
         linecontent  = line.split()
-        
         for i in range(len(linecontent)):            
             if i+2<len(linecontent) and linecontent[i].rstrip('\n')=='hash' and linecontent[i+1].rstrip('\n')=='=' :
                 hash = linecontent[i+2].rstrip('\n')
                 hashMap = checkHash(hashMap,hash,filepath, counter,line)
-
-        counter+=1
+        if(len(linecontent)>0):
+            setModInfo(linecontent,modName)
+        counter+=1    
     content.close()
+   
 
     return hashMap
 
+#Extract Mod Info
+def setModInfo(linecontent,modName):
+    
+    toggels = []
+    if (linecontent[0] =="key" ):
+        toggels.append(linecontent)
+    pushModInfo(modName, toggels)     
 
+#Insert Mod Info
+def  pushModInfo(name, toggels) :
+    extractedToggels = []
+    for t in toggels:
+        toggel =""
+        keySet = False
+        remove = ["key","KEY","=","alt","ALT","ctrl","CTRL","shift","SHIFT","up","UP","VK_UP","down","DOWN","VK_DOWN" ,"right","RIGHT","VK_RIGHT","left","LEFT","VK_LEFT", "no_alt", "NO_ALT", "no_shif", "NO_SHIFT", "no_ctrl", "NO_CTRL"]
+        if("alt" in t or "ALT" in t):
+            toggel+= "alt " 
+        if("ctrl" in t or "CTRL" in t):
+            toggel+= "control " 
+        if("shift" in t or "SHIFT" in t):
+            toggel+= "shift " 
+        if("up" in t or "UP" in t or "VK_UP" in t ):
+            toggel+= "up " 
+            keySet = True
+        if("down" in t or "DOWN" in t or "VK_DOWN" in t ):
+            toggel+= "down "
+            keySet = True
+        if("right" in t or "RIGHT" in t or "VK_RIGHT" in t ):
+            toggel+= "right "
+            keySet = True
+        if("left" in t or "LEFT" in t or "VK_LEFT" in t ):
+            toggel+= "left "
+            keySet = True
+       
+        result = [e for e in t if e not in remove]    
+       
+        if(len(result)==1):
+           toggel+=result[0] 
+           keySet = True     
+        if(keySet):
+            extractedToggels.append(toggel) 
+
+       
+    if not name in modInfoHashMap.keys():
+        modInfoHashMap[name] = {'toggels':[]}
+
+
+    if(len(extractedToggels) >0):
+        for e in extractedToggels:
+           if not e in modInfoHashMap[name]['toggels']:
+               modInfoHashMap[name]['toggels'].append(e) 
+            
+    
+
+#Extract Hash Info
 def checkHash(hashMap,hash,filepath,lineNumber,line):
     absolutepath=os.path.abspath(filepath)
     iniName = filepath.split("\\")[1]
@@ -111,10 +169,10 @@ def checkHash(hashMap,hash,filepath,lineNumber,line):
 
                 key =filepath.split("\\")[1]
                 if( result[hash]['sameMod'] ==False):
-                    if(folderHasMap.get(key)==None  ):
-                         folderHasMap[key] =[result[hash]]
+                    if(folderHashMap.get(key)==None  ):
+                         folderHashMap[key] =[result[hash]]
                     else:
-                        folderHasMap[key].append(result[hash])
+                        folderHashMap[key].append(result[hash])
                 
                
             
@@ -123,52 +181,20 @@ def checkHash(hashMap,hash,filepath,lineNumber,line):
 
     return hashMap    
 
-def mergeFileHash():
-
-
-
-    
-    sameFileKeys = []
-    for key in folderHasMap.keys():
-        if(key=='All LadyGirl NPC mod for ZenlessZoneZero'):
-            print(folderHasMap[key])
-        merged=[]  
-        for e in folderHasMap[key]:
-            found = e['sameMod'] 
-            for i in merged:
-                if i['hash'] == e['hash']:
-                    found = True
-                    break
-                    
-            if not found:
-                merged.append(e) 
-        paths =[]
-        for element in merged:
-            paths.append(element['filepath'])
-        
-        if(isSameModFolderMatrix(paths)):
-            sameFileKeys.append(key)
-            #folderHasMap.pop(key)
-        else:    
-            folderHasMap[key] = merged
-
-    for e in sameFileKeys:
-        folderHasMap.pop(e)
-    
-
+#Sort Info
 def mergeFileHash2():
     popPila = []
-    for key in folderHasMap.keys():
-        for element in folderHasMap[key]:
+    for key in folderHashMap.keys():
+        for element in folderHashMap[key]:
             if(element['sameMod'] ):
-                folderHasMap[key].remove(element)
-        if len(folderHasMap[key])==0:
+                folderHashMap[key].remove(element)
+        if len(folderHashMap[key])==0:
             popPila.append(key)
 
     for e in popPila:
-        folderHasMap.pop(e) 
+        folderHashMap.pop(e) 
 
-
+#Sort Info
 def setGrade(filepath,posibleMatchs):
     res =  []
     splitedFilePath1 =  filepath.split("\\")
@@ -206,6 +232,7 @@ def setCheck(filepath,posibleMatchs):
             return True    
     return False
 
+#Setter
 def getPathWithoutFileName(path):
     res = ""
     splitedPath = path.split("\\")
@@ -213,7 +240,8 @@ def getPathWithoutFileName(path):
     for  e in splitedPath:
         res+=e
     return res
-             
+
+#Return if an array of filepath shares the same root             
 def isSameModFolder(filepaths):
     fileNames = {}
     for path in filepaths:
@@ -222,7 +250,7 @@ def isSameModFolder(filepaths):
     return 1 == len(fileNames.keys())
 
 
-
+#Return if a matrix of filepath shares the same root
 def isSameModFolderMatrix(paths):
     fileNames = {}
     for path in paths:
@@ -230,10 +258,11 @@ def isSameModFolderMatrix(paths):
             fileNames[e.split("\\")[1]] = None
     return 1 == len (fileNames.keys())
 
+#Pause
 def pause():
    input('Press Enter to close')
 
-
+#Buda
 def drawbuda():
     print()
     print()
@@ -259,181 +288,10 @@ def drawbuda():
     print()
 
 
-def generateReport():
-    #print(result)
-    #for key in result.keys():
-    #    print ("Hash: "+ key+ " found in")
-    #    for ocurrence in range(len(result[key]['line'])):
-    #        print ( result[key]['filepath'][ocurrence]+ " at line: " + str(result[key]['lineNumber'][ocurrence]) + "  "+ result[key]['line'][ocurrence])
-    
-
-
-    with open("HashConflictReport.html", 'w', encoding="utf-8") as report:
-            if(len(result.keys())>0):
-                report.write(getHeader(len(result.keys())))
-
-               
-                
-                report.write(fileSearchPanel())
-                orderedItems = orderItems(result)
-                report.write(exaustiveSearchPanel(orderedItems))
-            
-                report.write(getBottom())        
-            else:
-                report.write(emptyResults())
-            report.flush()
 
 
 
-    webbrowser.open('file://' + os.path.realpath("HashConflictReport.html"))      
 
-def fileSearchPanel():
-    html_template = """<div class="card-body"> <ul class="list-group">"""
-    count =1
-    for key in folderHasMap:
-       # if(len(folderHasMap[key])>1):
-       id = str(count)+"id"
-       html_template += generateHTMLListElementFiles(folderHasMap[key],key,id) 
-       count+=1
-    html_template += """</ul></div>"""
-    return html_template
-
-def exaustiveSearchPanel (orderedItems):
-    html_template = """<br><h3>Hash List</h3><div class="card-body"> <ul class="list-group">""" 
-    for key in orderedItems:
-        html_template += generateHTMLListElement(result[key['hash']],key['hash'],str(0)) 
-    html_template += """</ul></div>"""
-    return html_template
-
-def orderItems(items):
-    res =[]
-    for key in result.keys():
-        result[key]['hash'] = key
-        res.append(result[key])
-    res.sort(reverse=True,key=order)
-    return res
-
-def order(res):
-    return res['grade']
-
-def getIconCheck(check):
-    html_template =""
-    if(check):
-        html_template ="""<i class="material-icons">warning</i>"""
-    
-    return html_template
-
-def getListGroup(grade):
-    if grade < 25:
-        return  """color: AliceBlue;"""
-    if grade < 50:
-        return  """color: GreenYellow;</i>"""
-    else:
-        return  """color: IndianRed;</i>"""
-
-def generateHTMLListElementFiles(element,hash,id):
-    html_template =  """<li  class="list-group-item d-flex justify-content-between align-items-center" >
-    <div id="accordion"""+id+"""">
-    Mod: <button class="btn btn-link" data-toggle="collapse" data-target="#"""+id+"""" aria-expanded="false" aria-controls="collapseOne"> """+ hash+"""</button> 
-    <div id="""+id+""" aria-labelledby="headingOne" class="accordion-body collapse" data-parent="#accordion"""+id+"""" >
-    <div class="card-body">
-    <ul class="list-group">"""
-    html_template +="""<div class="card-body"> <ul class="list-group">"""
-    
-    count = 1
-    for ocurrence in element:
-       # if count ==1:
-        #    print(ocurrence)
-        html_template += generateHTMLListElement(ocurrence,ocurrence['hash'],str(id)+str(count)) 
-        count+=1
-    html_template += """</ul></div>"""                   
-    html_template +="</ul></div></div></div></li>"                   
-    return  html_template
-
-def generateHTMLListElement(element,hash,stamp):
-    if len(element['iniNames']) > 50:
-        element['iniNames'] = element['iniNames'][:50]+"..."
-    html_template = """  <li  class="list-group-item d-flex justify-content-between align-items-center" ><div id="accordion"""+hash+stamp+"""">
-            
-                    
-                       Hash:<button class="btn btn-link" data-toggle="collapse" data-target="#"""+hash+stamp+"""" aria-expanded="false" aria-controls="collapseOne"> """+ hash+"""</button> """+element['iniNames']+""" : """+str(len(element['lineNumber']))+""" elements
-                    
-                <div id="""+hash+stamp+""" aria-labelledby="headingOne" class="accordion-body collapse" data-parent="#accordion"""+hash+stamp+"""" >
-                <div class="card-body">
-                    <ul class="list-group">"""
-    
-
-    
-    for ocurrence in range(len(element['line'])):
-        html_template += """ <li class="list-group-item fs-6"> Found at line number """+ str(element['lineNumber'][ocurrence]+1)+""": <a href="file:///"""+ element['absolutepaht'][ocurrence]+"""">"""+ element['filepath'][ocurrence]+"""</a></li>"""
-
-    html_template +="</ul></div></div></li>"
-    #html_template +="""</button>"""
-    return html_template
-
-def emptyResults():
-    html_template = """<!DOCTYPE html> 
-    <html lang="en">
-    <head> 
-    
-    <title>Hash Conflict Report</title> 
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
-    </head> 
-    <body> 
-    <div class="container">
-    <h2>Hash Conflict Report</h2>
-    
-
-    <p>Congratulations, the process has not found any conflict</p>
-    </div>
-    </body> 
-    </html> 
-    """
-    return html_template
-
-
-def getHeader(matches):
-    html_template = """<!DOCTYPE html> 
-    <html lang="en">
-    <head> 
-    <title>Hash Conflict Report</title> 
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
-  
-    
-    </head> 
-    <body> 
-    <div class="container">
-    <h2>Hash Conflict Report</h2>
-    <p>The process has found """+str(matches)+""" hash.</p>
-    <p>This hashes appear on different files, this is not forced a conflict if they are intentionally set by moders or users</p>
-    <h3>Mod List</h3>
-
-
-    
-     
-  
-    """
-    return html_template
-
-def getBottom():
-    html_template = """ 
-    
-    </div>
-    </div>
-    </body> 
-    </html> 
-    """
-    return html_template
-
-main()
-pause()
+#pause()
 #python -m PyInstaller  --onefile  ModConflictFinder.py   
 
